@@ -24,6 +24,9 @@ cd tiamat
 ```bash
 uv sync
 ```
+create a `.env` file and add:
+- GITHUB_TOKEN: your github access token
+- REPOSITORIES: a comma separated list of repositories, in the format `org/repo_name`
 
 ## Usage
 ```bash
