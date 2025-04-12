@@ -1,0 +1,13 @@
+[project]
+name = "tiamat"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.1.8",
+    "dotenv>=0.9.9",
+    "ipython>=9.1.0",
+    "requests>=2.32.3",
+    "rich>=14.0.0",
+]
