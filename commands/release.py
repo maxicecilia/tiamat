@@ -18,26 +18,30 @@ def register_release_commands(cli, REPOSITORIES):
         return repo_input
 
     @cli.command()
-    @click.argument("tag", required=True)
     @click.argument("repo", required=True)
+    @click.option("--major", is_flag=True, help="Bump the major version")
+    @click.option("--minor", is_flag=True, help="Bump the minor version (default)")
+    @click.option("--patch", is_flag=True, help="Bump the patch version")
     @click.option(
-        "--target", "-t", default="main", help="Target branch for the release"
+        "--branch", "-b", default="main", help="Target branch for the release"
     )
-    @click.option(
-        "--name", "-n", help="Release name (defaults to tag if not specified)"
-    )
-    @click.option("--body", "-b", help="Release description")
+    @click.option("--name", "-n", help="Release name (defaults to '1.0.0' format)")
     @click.option("--draft/--no-draft", default=False, help="Create as draft release")
     @click.option(
         "--prerelease/--no-prerelease", default=False, help="Mark as pre-release"
     )
-    def release(tag, repo, target, name, body, draft, prerelease):
-        """Create a new GitHub release.
+    def bump(repo, major, minor, patch, branch, name, draft, prerelease):
+        """Bump version and create a new release.
+
+        Automatically increments the version number based on the latest release
+        and creates a new GitHub release with the bumped version.
+
+        By default bumps the minor version (1.0.0 -> 1.1.0).
 
         Examples:
-          - release v1.0.0 coralreef
-          - release v1.0.0 coralreef --target main --name "Version 1.0.0"
-          - release v1.0.0 coralreef --draft --prerelease
+          - bump coralreef
+          - bump coralreef --patch
+          - bump coralreef --major --name "Major Release" -m "Lots of new features!"
         """
         if not GITHUB_TOKEN:
             rprint(
@@ -45,20 +49,56 @@ def register_release_commands(cli, REPOSITORIES):
             )
             return
 
+        # Resolve repository name
         repo_full = resolve_repo(repo)
         if not repo_full:
             rprint(f"[bold red]❌ Repository not found: {repo}[/bold red]")
             return
 
-        GitHubService.create_release(
-            repo_full,
-            tag,
-            target_branch=target,
-            name=name,
-            body=body,
-            draft=draft,
-            prerelease=prerelease,
-        )
+        # Get latest version
+        current_version = GitHubService.get_latest_version(repo_full)
+
+        # Determine which part to bump based on flags
+        bump_type = "minor"  # default
+        if major:
+            bump_type = "major"
+        elif patch:
+            bump_type = "patch"
+
+        # Bump version
+        new_version = GitHubService.bump_version(current_version, bump_type)
+
+        # Set default name if not provided
+        if not name:
+            name = f"{new_version}"
+
+        # Print summary before creating release
+        rprint(f"[bold blue]🚀 Creating new release:[/bold blue]")
+        rprint(f"  • [green]Repository:[/green] {repo_full}")
+        rprint(f"  • [green]Current version:[/green] {current_version}")
+        rprint(f"  • [green]New version:[/green] {new_version} ({bump_type} bump)")
+        rprint(f"  • [green]Target branch:[/green] {branch}")
+        rprint(f"  • [green]Name:[/green] {name}")
+
+        # Ask for confirmation
+        if click.confirm("Do you want to create this release?", default=True):
+            # Create the release
+            success = GitHubService.create_release(
+                repo_full,
+                new_version,
+                target_branch=branch,
+                name=name,
+                body="",
+                draft=draft,
+                prerelease=prerelease,
+            )
+
+            if success:
+                rprint(
+                    f"[bold green]✅ Successfully bumped version from {current_version} to {new_version}[/bold green]"
+                )
+        else:
+            rprint("[yellow]Release creation cancelled.[/yellow]")
 
     @cli.command()
     @click.argument("repo", required=False)
@@ -91,4 +131,4 @@ def register_release_commands(cli, REPOSITORIES):
                 GitHubService.list_releases(repository, limit)
 
     # Return the command functions for reference
-    return release, releases
+    return bump, releases

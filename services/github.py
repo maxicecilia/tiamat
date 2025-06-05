@@ -158,10 +158,6 @@ class GitHubService:
         if not name:
             name = f"Release {tag_name}"
 
-        # Set default body if not provided
-        if not body:
-            body = f"Release {tag_name} created by Tiamat on {datetime.now().strftime('%B %d, %Y')}"
-
         payload = {
             "tag_name": tag_name,
             "target_commitish": target_branch,
@@ -169,6 +165,7 @@ class GitHubService:
             "body": body,
             "draft": draft,
             "prerelease": prerelease,
+            "generate_release_notes": True,
         }
 
         response = requests.post(release_url, headers=HEADERS, json=payload)
@@ -288,7 +285,7 @@ class GitHubService:
                 # Get the latest run info for this workflow
                 last_run = "Never"
                 runs_url = _get_url(
-                    "repos/{repo}/actions/workflows/{workflow_id}/runs?per_page=1"
+                    f"repos/{repo}/actions/workflows/{workflow_id}/runs?per_page=1"
                 )
                 runs_response = requests.get(runs_url, headers=HEADERS)
 
@@ -375,7 +372,7 @@ class GitHubService:
 
         # Now we have a numeric ID, trigger the workflow
         dispatch_url = _get_url(
-            "repos/{repo}/actions/workflows/{workflow_id}/dispatches"
+            f"repos/{repo}/actions/workflows/{workflow_id}/dispatches"
         )
 
         payload = {

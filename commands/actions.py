@@ -29,18 +29,7 @@ WORKFLOW_PRESETS = {
                 "description": "Deploy to demo EU and US",
             },
         }
-    },
-    # TODO: add presets for migrations later.
-    "migrate": {
-        "environments": {
-            "staging": {
-                "workflow": "test.yml",
-                "inputs": {"type": "unit", "coverage": "true"},
-                "branch": "develop",
-                "description": "Run unit tests with coverage",
-            },
-        }
-    },
+    }
 }
 
 
@@ -57,27 +46,6 @@ def register_actions_commands(cli, REPOSITORIES):
             if matching_repos:
                 return matching_repos[0]
         return repo_input
-
-    @cli.command()
-    @click.argument("repo", required=True)
-    def workflows(repo):
-        """List GitHub Actions workflows for a repository.
-
-        Examples:
-          - workflows coralreef
-        """
-        if not GITHUB_TOKEN:
-            rprint(
-                "[bold red]❌ GITHUB_TOKEN is not set. Please set it in your environment.[/bold red]"
-            )
-            return
-
-        repo_full = resolve_repo(repo)
-        if not repo_full:
-            rprint(f"[bold red]❌ Repository not found: {repo}[/bold red]")
-            return
-
-        GitHubService.list_workflows(repo_full)
 
     @cli.command()
     @click.argument("workflow", required=True)
@@ -122,126 +90,6 @@ def register_actions_commands(cli, REPOSITORIES):
 
         inputs_dict = inputs if inputs else None
         GitHubService.trigger_workflow(repo_full, workflow, branch, inputs_dict)
-
-    @cli.command()
-    def presets():
-        """List available workflow presets and environments."""
-        table = Table(title="Available Workflow Presets")
-        table.add_column("Command", style="cyan")
-        table.add_column("Environment", style="green")
-        table.add_column("Workflow", style="yellow")
-        table.add_column("Branch", style="magenta")
-        table.add_column("Description", style="blue")
-        table.add_column("Inputs", style="dim")
-
-        for preset_name, preset in WORKFLOW_PRESETS.items():
-            for env_name, env in preset["environments"].items():
-                workflow = env["workflow"]
-                branch = env.get("branch", "main")
-                inputs_str = ", ".join([f"{k}={v}" for k, v in env["inputs"].items()])
-                command = f"{preset_name} {env_name} <repo>"
-
-                table.add_row(
-                    preset_name,
-                    env_name,
-                    workflow,
-                    branch,
-                    env["description"],
-                    inputs_str,
-                )
-
-        rprint(table)
-        rprint("\n[dim]Usage example: deploy staging coralreef[/dim]")
-        rprint("[dim]Override branch: deploy staging coralreef --branch feature[/dim]")
-        rprint("[dim]Add inputs: deploy staging coralreef -i debug=true[/dim]")
-
-    @cli.command()
-    @click.argument("repo", required=True)
-    @click.option("--major", is_flag=True, help="Bump the major version")
-    @click.option("--minor", is_flag=True, help="Bump the minor version (default)")
-    @click.option("--patch", is_flag=True, help="Bump the patch version")
-    @click.option(
-        "--branch", "-b", default="main", help="Target branch for the release"
-    )
-    @click.option("--name", "-n", help="Release name (defaults to '1.0.0' format)")
-    @click.option("--body", "-m", help="Release description/message")
-    @click.option("--draft/--no-draft", default=False, help="Create as draft release")
-    @click.option(
-        "--prerelease/--no-prerelease", default=False, help="Mark as pre-release"
-    )
-    def bump(repo, major, minor, patch, branch, name, body, draft, prerelease):
-        """Bump version and create a new release.
-
-        Automatically increments the version number based on the latest release
-        and creates a new GitHub release with the bumped version.
-
-        By default bumps the minor version (1.0.0 -> 1.1.0).
-
-        Examples:
-          - bump coralreef
-          - bump coralreef --patch
-          - bump coralreef --major --name "Major Release" -m "Lots of new features!"
-        """
-        if not GITHUB_TOKEN:
-            rprint(
-                "[bold red]❌ GITHUB_TOKEN is not set. Please set it in your environment.[/bold red]"
-            )
-            return
-
-        # Resolve repository name
-        repo_full = resolve_repo(repo)
-        if not repo_full:
-            rprint(f"[bold red]❌ Repository not found: {repo}[/bold red]")
-            return
-
-        # Get latest version
-        current_version = GitHubService.get_latest_version(repo_full)
-
-        # Determine which part to bump based on flags
-        bump_type = "minor"  # default
-        if major:
-            bump_type = "major"
-        elif patch:
-            bump_type = "patch"
-
-        # Bump version
-        new_version = GitHubService.bump_version(current_version, bump_type)
-
-        # Set default name if not provided
-        if not name:
-            name = f"{new_version}"
-
-        # Set default body if not provided
-        if not body:
-            body = f"Release {new_version} created by Tiamat on {datetime.now().strftime('%B %d, %Y')}"
-
-        # Print summary before creating release
-        rprint(f"[bold blue]🚀 Creating new release:[/bold blue]")
-        rprint(f"  • [green]Repository:[/green] {repo_full}")
-        rprint(f"  • [green]Current version:[/green] {current_version}")
-        rprint(f"  • [green]New version:[/green] {new_version} ({bump_type} bump)")
-        rprint(f"  • [green]Target branch:[/green] {branch}")
-        rprint(f"  • [green]Name:[/green] {name}")
-
-        # Ask for confirmation
-        if click.confirm("Do you want to create this release?", default=True):
-            # Create the release
-            success = GitHubService.create_release(
-                repo_full,
-                new_version,
-                target_branch=branch,
-                name=name,
-                body=body,
-                draft=draft,
-                prerelease=prerelease,
-            )
-
-            if success:
-                rprint(
-                    f"[bold green]✅ Successfully bumped version from {current_version} to {new_version}[/bold green]"
-                )
-        else:
-            rprint("[yellow]Release creation cancelled.[/yellow]")
 
     # Dynamic command registration based on presets
     # This creates commands like: deploy, test, etc.
@@ -337,4 +185,4 @@ Examples:
         make_command(preset_name, preset_config)
 
     # Return the command functions for reference
-    return workflows, run, bump
+    return run

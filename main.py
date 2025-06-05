@@ -13,6 +13,7 @@ from commands.help import register_help_command
 from commands.shell import register_shell_command
 from commands.release import register_release_commands
 from commands.actions import register_actions_commands
+from commands.jira import register_jira_commands
 
 # Default branches
 DEFAULT_BASE_BRANCH = "main"
@@ -68,12 +69,13 @@ help_command = register_help_command(cli)
 shell_command = register_shell_command(cli, REPOSITORIES, GITHUB_TOKEN, TiamatContext)
 
 # Register release commands
-release_command, releases_command = register_release_commands(cli, REPOSITORIES)
+bump_command, releases_command = register_release_commands(cli, REPOSITORIES)
 
 # Register GitHub Actions commands
-workflows_command, run_command, bump_command = register_actions_commands(
-    cli, REPOSITORIES
-)
+run_command = register_actions_commands(cli, REPOSITORIES)
+
+# Register Jira commands
+jira_command, sprint_report_command = register_jira_commands(cli)
 
 
 @cli.command()

@@ -58,7 +58,6 @@ def register_shell_command(cli, repositories, github_token, TiamatContext):
                     "check",
                     "createpr",
                     "releases",
-                    "release",
                     "workflows",
                     "run",
                     "bump",
@@ -73,9 +72,6 @@ def register_shell_command(cli, repositories, github_token, TiamatContext):
 
                     if first_word == "releases" and current_position == 1:
                         # For 'releases', the repo is the first argument
-                        repo_position = True
-                    elif first_word == "release" and current_position == 2:
-                        # For 'release', the repo is the second argument (after tag)
                         repo_position = True
                     elif first_word in ("check", "createpr"):
                         if current_position == 1 and not ".." in text:
@@ -99,14 +95,7 @@ def register_shell_command(cli, repositories, github_token, TiamatContext):
 
                 # Branch name completions
                 branch_option_commands = {"setbase", "setrelease", "setdev"}
-                common_branches = [
-                    "main",
-                    "master",
-                    "develop",
-                    "release",
-                    "staging",
-                    "hotfix",
-                ]
+                common_branches = ["main", "develop"]
 
                 # Handle branch name completions for set commands
                 if first_word in branch_option_commands and current_position == 1:
@@ -147,6 +136,16 @@ def register_shell_command(cli, repositories, github_token, TiamatContext):
                         "--prerelease",
                         "--no-prerelease",
                     ]
+                    matches = [opt for opt in options if opt.startswith(text)]
+                    return matches[state] if state < len(matches) else None
+
+                # Add 'jira' to the list of commands that need specific completion
+                if first_word == "issue" and current_position == 1:
+                    # In the future, we could cache recent issues for completion
+                    return None
+
+                if first_word == "jira" and text.startswith("-"):
+                    options = ["--project", "-p", "--limit", "-n"]
                     matches = [opt for opt in options if opt.startswith(text)]
                     return matches[state] if state < len(matches) else None
 
