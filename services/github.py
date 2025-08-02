@@ -109,27 +109,25 @@ class GitHubService:
 
         if response.status_code == 201:
             pr = response.json()
-            rprint(f"🔗 {pr['html_url']}")
-            return True
+            return pr["html_url"]
         elif response.status_code == 422:
             # Get existing PRs between these branches
             pr_response = requests.get(existing_prs_url, headers=HEADERS)
             if pr_response.status_code == 200 and pr_response.json():
                 pr = pr_response.json()[0]
-                rprint(f"🔗 {pr['html_url']}")
-                return True
+                return pr["html_url"]
             else:
                 rprint(
                     f"[bold red]❌ Failed to create PR: {pr_response.status_code}[/bold red]"
                 )
                 rprint(pr_response.text)
-                return False
+                return None
         else:
             rprint(
                 f"[bold red]❌ Failed to create PR: {response.status_code}[/bold red]"
             )
             rprint(response.text)
-            return False
+            return None
 
     @staticmethod
     def merge_pr(repo: str, pr_number: int):

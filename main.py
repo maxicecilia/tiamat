@@ -9,20 +9,27 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from services.github import GitHubService, GITHUB_TOKEN  # noqa: E402
+from services.slack import SlackService  # noqa: E402
 from commands.help import register_help_command  # noqa: E402
 from commands.shell import register_shell_command  # noqa: E402
 from commands.release import register_release_commands  # noqa: E402
 from commands.actions import register_actions_commands  # noqa: E402
 from commands.jira import register_jira_commands  # noqa: E402
 from commands.merge import register_merge_commands  # noqa: E402
+from commands.slack import register_slack_commands  # noqa: E402
 
 # Default branches
 DEFAULT_BASE_BRANCH = "main"
 DEFAULT_HEAD_BRANCH = "release"
 
 REPOSITORIES = os.getenv("REPOSITORIES", "").split(",")
+FE_REPOSITORIES = os.getenv("FE_REPOSITORIES", "").split(",")
 
 console = Console()
+
+
+def is_fe_repo(repo):
+    return repo in FE_REPOSITORIES
 
 
 class TiamatContext:
@@ -80,6 +87,9 @@ jira_command, sprint_report_command = register_jira_commands(cli)
 
 # Register merge commands
 merge_command = register_merge_commands(cli, REPOSITORIES)
+
+# Register Slack commands
+send_command = register_slack_commands(cli)
 
 
 @cli.command()
@@ -148,20 +158,51 @@ def createpr(ctx, compare_spec, repo):
         elif ".." in compare_spec:
             base_branch, head_branch = compare_spec.split("..", 1)
 
+    notifications = {"fe": None, "be": None}
+
     if repo:
         repo_full = resolve_repo(repo)
         has_commits = GitHubService.get_pending_commits(
             repo_full, base_branch, head_branch, display_table=False
         )
         if has_commits:
-            GitHubService.create_pull_request(repo_full, base_branch, head_branch)
+            pr_url = GitHubService.create_pull_request(
+                repo_full, base_branch, head_branch
+            )
+            if pr_url:
+                rprint(f"🔗 {pr_url}")
+                key = "fe" if is_fe_repo(repo_full) else "be"
+                notifications[key] = (
+                    f"A new PR has been created for {repo_full}:\n{pr_url}"
+                )
+            else:
+                rprint(f"❌ Failed to create PR for {repo_full}")
     else:
         for repo in REPOSITORIES:
             has_commits = GitHubService.get_pending_commits(
                 repo, base_branch, head_branch, display_table=False
             )
             if has_commits:
-                GitHubService.create_pull_request(repo, base_branch, head_branch)
+                pr_url = GitHubService.create_pull_request(
+                    repo, base_branch, head_branch
+                )
+                if pr_url:
+                    rprint(f"🔗 {pr_url}")
+                    key = "fe" if is_fe_repo(repo) else "be"
+                    if notifications[key]:
+                        notifications[key] += f"\n{pr_url}"
+                    else:
+                        notifications[key] = f"New PRs have been created:\n{pr_url}"
+                else:
+                    rprint(f"❌ Failed to create PR for {repo}")
+
+    for key, message in notifications.items():
+        if message:
+            SlackService.send_message(
+                message,
+                tag_fe_developers=key == "fe",
+                tag_be_developers=key == "be",
+            )
 
 
 @cli.command()
@@ -188,6 +229,10 @@ def settings(ctx):
     table.add_row("Base Branch", ctx.base_branch)
     table.add_row("Head Branch", ctx.head_branch)
     table.add_row("GitHub Token", "Set ✅" if GITHUB_TOKEN else "Not Set ❌")
+    table.add_row(
+        "Slack Integration",
+        "Configured ✅" if SlackService.is_configured() else "Not Configured ❌",
+    )
     table.add_row("Repositories", str(len(REPOSITORIES)))
 
     console.print(table)
