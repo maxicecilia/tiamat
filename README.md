@@ -73,9 +73,6 @@ Available Commands:
 │ deploy    │ Run a predefined workflow.                        │
 │ help      │ Show help for Tiamat commands.                    │
 │ list      │ List all repositories.                            │
-│ migrate   │ Run a predefined workflow.                        │
-│ presets   │ List available workflow presets and environments. │
-│ release   │ Create a new GitHub release.                      │
 │ releases  │ List recent releases for a repository.            │
 │ run       │ Run a GitHub Actions workflow.                    │
 │ settings  │ Display current settings.                         │

@@ -30,7 +30,9 @@ class GitHubService:
 
     @staticmethod
     @staticmethod
-    def get_pending_commits(repo: str, base_branch: str, compare_branch: str) -> bool:
+    def get_pending_commits(
+        repo: str, base_branch: str, compare_branch: str, display_table: bool = True
+    ) -> bool:
         """
         Compare two branches and show pending commits
 
@@ -50,7 +52,8 @@ class GitHubService:
             commits = data.get("commits", [])
 
             table = Table(
-                title=f"{repo} — {len(commits)} pending commit(s): {base_branch}...{compare_branch}"
+                title=f"\n[bold]📦 {repo} — {len(commits)} pending commit(s): {base_branch}...{compare_branch}[/bold]",
+                title_justify="left",
             )
             table.add_column("Commit", style="dim")
             table.add_column("Author", style="green")
@@ -64,9 +67,9 @@ class GitHubService:
                 )
                 table.add_row(sha, author, msg)
 
-            if commits:
+            if commits and display_table:
                 console.print(table)
-            else:
+            elif display_table:
                 rprint(
                     f"\n[bold blue]📦 {repo}[/bold blue] — [green]No pending commits[/green]: {base_branch}...{compare_branch}"
                 )
@@ -93,6 +96,9 @@ class GitHubService:
             bool: True if PR was created successfully or already exists, False otherwise
         """
         pr_url = _get_url(f"repos/{repo}/pulls")
+        existing_prs_url = _get_url(
+            f"repos/{repo}/pulls?head={head_branch}&base={base_branch}&state=open"
+        )
         pr_payload = {
             "title": f"Merge {head_branch} into {base_branch} - {datetime.now().strftime('%B %Y')}",
             "head": head_branch,
@@ -103,16 +109,50 @@ class GitHubService:
 
         if response.status_code == 201:
             pr = response.json()
-            rprint(f"[bold green]✅ PR created:[/bold green] {pr['html_url']}")
+            rprint(f"🔗 {pr['html_url']}")
             return True
         elif response.status_code == 422:
-            rprint(
-                f"[bold yellow]⚠️ PR already exists or branch is up to date.[/bold yellow]"
-            )
-            return True
+            # Get existing PRs between these branches
+            pr_response = requests.get(existing_prs_url, headers=HEADERS)
+            if pr_response.status_code == 200 and pr_response.json():
+                pr = pr_response.json()[0]
+                rprint(f"🔗 {pr['html_url']}")
+                return True
+            else:
+                rprint(
+                    f"[bold red]❌ Failed to create PR: {pr_response.status_code}[/bold red]"
+                )
+                rprint(pr_response.text)
+                return False
         else:
             rprint(
                 f"[bold red]❌ Failed to create PR: {response.status_code}[/bold red]"
+            )
+            rprint(response.text)
+            return False
+
+    @staticmethod
+    def merge_pr(repo: str, pr_number: int):
+        """
+        Merge a pull request
+
+        Args:
+            repo: Repository name (format: owner/repo)
+            pr_number: The number of the pull request to merge
+        """
+        merge_url = _get_url(f"repos/{repo}/pulls/{pr_number}/merge")
+        merge_payload = {
+            "commit_title": f"Merge {pr_number}",
+            "commit_message": f"Merge {pr_number}",
+            "merge_method": "merge",
+        }
+        response = requests.put(merge_url, headers=HEADERS, json=merge_payload)
+        if response.status_code == 200:
+            rprint(f"✅ Merged PR {pr_number} into {repo}")
+            return True
+        else:
+            rprint(
+                f"❌ Failed to merge PR {pr_number} into {repo}: {response.status_code}"
             )
             rprint(response.text)
             return False
@@ -123,7 +163,7 @@ class GitHubService:
         if not GITHUB_TOKEN:
             return False
 
-        test_url = _get_url(f"user")
+        test_url = _get_url("user")
         response = requests.get(test_url, headers=HEADERS)
         return response.status_code == 200
 
@@ -154,7 +194,6 @@ class GitHubService:
         """
         release_url = _get_url(f"repos/{repo}/releases")
 
-        # Set default name if not provided
         if not name:
             name = f"Release {tag_name}"
 
@@ -244,77 +283,6 @@ class GitHubService:
                 f"[bold red]❌ Failed to fetch releases: {response.status_code}[/bold red]"
             )
             rprint(response.text)
-            return False
-
-    @staticmethod
-    def list_workflows(repo: str) -> bool:
-        """
-        List available GitHub Actions workflows for a repository
-
-        Args:
-            repo: Repository name (format: owner/repo)
-
-        Returns:
-            bool: True if workflows were found and displayed, False otherwise
-        """
-        workflows_url = _get_url(f"repos/{repo}/actions/workflows")
-
-        response = requests.get(workflows_url, headers=HEADERS)
-
-        if response.status_code == 200:
-            data = response.json()
-            workflows = data.get("workflows", [])
-
-            if not workflows:
-                rprint(f"[yellow]No workflows found for {repo}[/yellow]")
-                return False
-
-            table = Table(title=f"GitHub Actions Workflows for {repo}")
-            table.add_column("ID", style="dim")
-            table.add_column("Name", style="green")
-            table.add_column("State", style="cyan")
-            table.add_column("Path", style="blue")
-            table.add_column("Last Run", style="yellow")
-
-            for workflow in workflows:
-                workflow_id = str(workflow.get("id"))
-                name = workflow.get("name")
-                state = workflow.get("state")
-                path = workflow.get("path", "").replace(".github/workflows/", "")
-
-                # Get the latest run info for this workflow
-                last_run = "Never"
-                runs_url = _get_url(
-                    f"repos/{repo}/actions/workflows/{workflow_id}/runs?per_page=1"
-                )
-                runs_response = requests.get(runs_url, headers=HEADERS)
-
-                if runs_response.status_code == 200:
-                    runs_data = runs_response.json()
-                    if runs_data.get("total_count", 0) > 0:
-                        latest_run = runs_data.get("workflow_runs", [])[0]
-                        run_date = datetime.fromisoformat(
-                            latest_run.get("created_at").replace("Z", "+00:00")
-                        ).strftime("%Y-%m-%d %H:%M")
-                        run_status = latest_run.get("conclusion", "running")
-                        last_run = f"{run_date} ({run_status})"
-
-                table.add_row(workflow_id, name, state, path, last_run)
-
-            console.print(table)
-            return True
-        else:
-            rprint(
-                f"[bold red]❌ Failed to fetch workflows: {response.status_code}[/bold red]"
-            )
-            error_message = response.text
-            try:
-                error_data = response.json()
-                if "message" in error_data:
-                    error_message = error_data["message"]
-            except:
-                pass
-            rprint(f"[red]Error: {error_message}[/red]")
             return False
 
     @staticmethod

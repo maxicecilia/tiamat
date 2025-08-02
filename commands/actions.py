@@ -1,8 +1,5 @@
-from datetime import datetime
-
 import click
 from rich import print as rprint
-from rich.table import Table
 
 from services.github import GITHUB_TOKEN, GitHubService
 
@@ -151,7 +148,7 @@ def register_actions_commands(cli, REPOSITORIES):
                     return
 
                 # Show what we're about to do
-                rprint(f"[bold blue]🚀 Running workflow:[/bold blue]")
+                rprint("[bold blue]🚀 Running workflow:[/bold blue]")
                 rprint(f"  • [green]Command:[/green] {name} {environment}")
                 rprint(f"  • [green]Description:[/green] {env_config['description']}")
                 rprint(f"  • [green]Workflow:[/green] {workflow_file}")
@@ -159,7 +156,7 @@ def register_actions_commands(cli, REPOSITORIES):
                 rprint(f"  • [green]Branch:[/green] {workflow_branch}")
 
                 if inputs:
-                    rprint(f"  • [green]Inputs:[/green]")
+                    rprint("  • [green]Inputs:[/green]")
                     for key, value in inputs.items():
                         rprint(f"    - {key}: {value}")
 

@@ -8,12 +8,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from services.github import GitHubService, GITHUB_TOKEN
-from commands.help import register_help_command
-from commands.shell import register_shell_command
-from commands.release import register_release_commands
-from commands.actions import register_actions_commands
-from commands.jira import register_jira_commands
+from services.github import GitHubService, GITHUB_TOKEN  # noqa: E402
+from commands.help import register_help_command  # noqa: E402
+from commands.shell import register_shell_command  # noqa: E402
+from commands.release import register_release_commands  # noqa: E402
+from commands.actions import register_actions_commands  # noqa: E402
+from commands.jira import register_jira_commands  # noqa: E402
+from commands.merge import register_merge_commands  # noqa: E402
 
 # Default branches
 DEFAULT_BASE_BRANCH = "main"
@@ -76,6 +77,9 @@ run_command = register_actions_commands(cli, REPOSITORIES)
 
 # Register Jira commands
 jira_command, sprint_report_command = register_jira_commands(cli)
+
+# Register merge commands
+merge_command = register_merge_commands(cli, REPOSITORIES)
 
 
 @cli.command()
@@ -147,14 +151,14 @@ def createpr(ctx, compare_spec, repo):
     if repo:
         repo_full = resolve_repo(repo)
         has_commits = GitHubService.get_pending_commits(
-            repo_full, base_branch, head_branch
+            repo_full, base_branch, head_branch, display_table=False
         )
         if has_commits:
             GitHubService.create_pull_request(repo_full, base_branch, head_branch)
     else:
         for repo in REPOSITORIES:
             has_commits = GitHubService.get_pending_commits(
-                repo, base_branch, head_branch
+                repo, base_branch, head_branch, display_table=False
             )
             if has_commits:
                 GitHubService.create_pull_request(repo, base_branch, head_branch)
