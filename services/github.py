@@ -148,12 +148,8 @@ class GitHubService:
         }
         response = requests.put(merge_url, headers=HEADERS, json=merge_payload)
         if response.status_code == 200:
-            rprint(f"✅ Merged PR {pr_number} into {repo}")
             return True
         else:
-            rprint(
-                f"❌ Failed to merge PR {pr_number} into {repo}: {response.status_code}"
-            )
             rprint(response.text)
             return False
 
