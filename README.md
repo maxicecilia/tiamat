@@ -2,6 +2,11 @@
 
 # Tiamat
 
+<p align="left">
+  <img src="https://raw.githubusercontent.com/mcecilia-dev/tiamat/main/assets/tiamat-logo.png" alt="Tiamat Logo" width="200"/>
+</p>
+
+
 A command-line tool for managing GitHub repositories, pull requests, releases, and GitHub Actions workflows.
 
 ## Features
