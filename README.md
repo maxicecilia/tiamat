@@ -3,7 +3,7 @@
 # Tiamat
 
 <p align="left">
-  <img src="https://raw.githubusercontent.com/mcecilia-dev/tiamat/main/assets/tiamat-logo.png" alt="Tiamat Logo" width="200"/>
+  <img src="https://raw.githubusercontent.com/maxicecilia/tiamat/main/assets/tiamat_logo.svg" alt="Tiamat Logo" width="200"/>
 </p>
 
 
