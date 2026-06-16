@@ -9,7 +9,6 @@ console = Console()
 COMMAND_CATEGORIES = {
     "GH Repos": ["check", "createpr", "releases", "bump"],
     "GH Actions": ["run", "deploy"],
-    "Jira": ["jira", "issues", "projects", "issue", "sprint-report"],
     "Other": ["help", "settings", "shell", "exit"],
 }
 
@@ -47,15 +46,13 @@ def register_help_command(cli):
             rprint("\n[bold blue]🐉 Tiamat - Repository Management Tool[/bold blue]")
             rprint(
                 "\nTiamat helps you manage GitHub repositories, check pending commits, create PRs, "
-                "run GitHub Actions workflows, and interact with Jira."
+                "run GitHub Actions workflows."
             )
 
             rprint("\n[bold cyan]Quick Start:[/bold cyan]")
             rprint("  • Run with no arguments to enter interactive shell mode")
             rprint("  • Use `check main...release` to compare branches")
             rprint("  • Use `createpr main...release` to create PRs")
-            rprint('  • Use `jira "sprint = current()"` to search Jira issues')
-
             # Get all commands and their help text
             all_commands = {}
             for cmd_name in cli.list_commands(ctx):
@@ -138,9 +135,6 @@ def register_help_command(cli):
                 "  • [green]createpr develop...main[/green] - Create PRs for all repos"
             )
             rprint("  • [green]bump coralreef --patch[/green] - Create a patch release")
-            rprint(
-                '  • [green]jira "sprint = current()"[/green] - Search current sprint issues'
-            )
             rprint("  • [green]settings[/green] - Show current settings")
 
     # Return a reference to the command for direct usage in shell mode

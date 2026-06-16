@@ -14,7 +14,6 @@ from commands.help import register_help_command  # noqa: E402
 from commands.shell import register_shell_command  # noqa: E402
 from commands.release import register_release_commands  # noqa: E402
 from commands.actions import register_actions_commands  # noqa: E402
-from commands.jira import register_jira_commands  # noqa: E402
 from commands.merge import register_merge_commands  # noqa: E402
 from commands.slack import register_slack_commands  # noqa: E402
 
@@ -81,9 +80,6 @@ bump_command, releases_command = register_release_commands(cli, REPOSITORIES)
 
 # Register GitHub Actions commands
 run_command = register_actions_commands(cli, REPOSITORIES)
-
-# Register Jira commands
-jira_command, sprint_report_command = register_jira_commands(cli)
 
 # Register merge commands
 merge_command = register_merge_commands(cli, REPOSITORIES)

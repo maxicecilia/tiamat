@@ -139,16 +139,6 @@ def register_shell_command(cli, repositories, github_token, TiamatContext):
                     matches = [opt for opt in options if opt.startswith(text)]
                     return matches[state] if state < len(matches) else None
 
-                # Add 'jira' to the list of commands that need specific completion
-                if first_word == "issue" and current_position == 1:
-                    # In the future, we could cache recent issues for completion
-                    return None
-
-                if first_word == "jira" and text.startswith("-"):
-                    options = ["--project", "-p", "--limit", "-n"]
-                    matches = [opt for opt in options if opt.startswith(text)]
-                    return matches[state] if state < len(matches) else None
-
             readline.set_completer(completer)
             readline.set_completer_delims(" \t\n;")
             readline.parse_and_bind("tab: complete")
