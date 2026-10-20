@@ -7,7 +7,7 @@ console = Console()
 
 # Define command categories and their display order
 COMMAND_CATEGORIES = {
-    "GH Repos": ["check", "createpr", "releases", "bump"],
+    "GH Repos": ["check", "createpr", "releases", "bump", "stats"],
     "GH Actions": ["run", "deploy"],
     "Other": ["help", "settings", "shell", "exit"],
 }

@@ -1,21 +1,23 @@
 import os
 import sys
+
 import click
+from dotenv import load_dotenv
+from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
-from rich import print as rprint
-from dotenv import load_dotenv
 
 load_dotenv()
 
-from services.github import GitHubService, GITHUB_TOKEN  # noqa: E402
-from services.slack import SlackService  # noqa: E402
-from commands.help import register_help_command  # noqa: E402
-from commands.shell import register_shell_command  # noqa: E402
-from commands.release import register_release_commands  # noqa: E402
-from commands.actions import register_actions_commands  # noqa: E402
-from commands.merge import register_merge_commands  # noqa: E402
-from commands.slack import register_slack_commands  # noqa: E402
+from commands.actions import register_actions_commands
+from commands.help import register_help_command
+from commands.merge import register_merge_commands
+from commands.release import register_release_commands
+from commands.shell import register_shell_command
+from commands.slack import register_slack_commands
+from commands.stats import register_stats_command
+from services.github import GITHUB_TOKEN, GitHubService
+from services.slack import SlackService
 
 # Default branches
 DEFAULT_BASE_BRANCH = "main"
@@ -23,6 +25,9 @@ DEFAULT_HEAD_BRANCH = "release"
 
 REPOSITORIES = os.getenv("REPOSITORIES", "").split(",")
 FE_REPOSITORIES = os.getenv("FE_REPOSITORIES", "").split(",")
+BETA_REPOSITORIES = os.getenv("BETA_REPOSITORIES", "").split(",")
+ML_REPOSITORIES = os.getenv("ML_REPOSITORIES", "").split(",")
+DATAOPS_REPOSITORIES = os.getenv("DATAOPS_REPOSITORIES", "").split(",")
 
 console = Console()
 
@@ -86,6 +91,11 @@ merge_command = register_merge_commands(cli, REPOSITORIES)
 
 # Register Slack commands
 send_command = register_slack_commands(cli)
+
+# Register stats command
+stats_command = register_stats_command(
+    cli, REPOSITORIES, FE_REPOSITORIES, BETA_REPOSITORIES, ML_REPOSITORIES, DATAOPS_REPOSITORIES
+)
 
 
 @cli.command()
