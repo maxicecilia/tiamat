@@ -13,3 +13,9 @@ wheels/
 
 # Stats cache files
 cache/
+
+# Dashboard SQLite database
+data/
+.enjoy-logs/
+design-drafts/
+presets.json

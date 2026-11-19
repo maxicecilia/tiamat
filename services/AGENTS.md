@@ -24,7 +24,7 @@ API client abstractions for external services. Each module encapsulates all HTTP
 - `GitHubService` uses `@staticmethod` throughout; do not introduce instance state.
 - `bump_version()` is pure logic (no I/O) and safe to unit-test in isolation.
 - `trigger_workflow()` resolves workflow filenames to numeric IDs with two passes (exact path match, then substring match) before dispatching — be aware of this when naming workflow files.
-- `create_pull_request()` handles HTTP 422 (PR already exists) by fetching and returning the existing PR URL.
+- `create_pull_request()` handles HTTP 422 (PR already exists) by fetching the existing PR (filtered with `head=owner:branch`) and returns `(url, created)`; `created` is False for an existing PR so `createpr` skips Slack.
 
 **slack.py**
 - `SlackService.send_message()` auto-selects webhook vs. Bot API depending on which env var is set (webhook takes priority).

@@ -23,7 +23,7 @@ Click command registrations, one module per feature area. Each module exposes a 
 ### Working In This Directory
 - Every module follows the same registration pattern: a top-level `register_*` function takes `cli` (and optionally `REPOSITORIES`, `GITHUB_TOKEN`, etc.) and uses `@cli.command()` decorators inside it. Do not define commands at module level.
 - `resolve_repo()` is duplicated in `actions.py`, `merge.py`, and `release.py`. If adding a new command that needs repo resolution, copy the same pattern or refactor to a shared helper in `helpers/`.
-- `WORKFLOW_PRESETS` in `actions.py` is the place to add new predefined deploy targets (staging, prod, demo, etc.).
+- Deploy targets (staging, prod, demo, etc.) come from `presets.json` (untracked; see `presets.example.json`), loaded by `services/presets.py`.
 - `COMMAND_CATEGORIES` in `help.py` must be updated when adding new commands, otherwise they fall into the uncategorized "Other" bucket.
 - `shell.py` hard-codes the list of `repo_commands` that get tab-completion for repository names — update it when adding repo-aware commands.
 

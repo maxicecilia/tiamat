@@ -88,7 +88,7 @@ def register_stats_command(cli, REPOSITORIES, FE_REPOSITORIES, BETA_REPOSITORIES
         Examples:
           - stats
           - stats --months 3
-          - stats --repo coralreef
+          - stats --repo my-service
           - stats --refresh
           - stats 2026-07
           - stats --team beta

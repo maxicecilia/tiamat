@@ -9,14 +9,21 @@ from rich.table import Table
 
 # GitHub API configuration
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_TRACERA_TOKEN = os.getenv("GITHUB_TRACERA_TOKEN")
 GITHUB_URL = "https://api.github.com"
 
 DEFAULT_VERSION = "0.0.1"
 
+def org_token_var(repo: str | None) -> str | None:
+    """Env var holding an org-specific token: `my-org/app` -> GITHUB_TOKEN_MY_ORG."""
+    if not repo or "/" not in repo:
+        return None
+    return "GITHUB_TOKEN_" + re.sub(r"[^A-Z0-9]", "_", repo.split("/", 1)[0].upper())
+
+
 def _get_headers(repo: str = None):
-    """Get the appropriate headers for a given repo."""
-    token = GITHUB_TRACERA_TOKEN if repo and repo.startswith("trace-era/") else GITHUB_TOKEN
+    """Headers for `repo`: its org's token (GITHUB_TOKEN_<ORG>) if set, else GITHUB_TOKEN."""
+    var = org_token_var(repo)
+    token = (os.getenv(var) if var else None) or GITHUB_TOKEN
     return {
         "Authorization": f"token {token}",
         "Accept": "application/vnd.github+json",
@@ -102,11 +109,13 @@ class GitHubService:
             head_branch: Source branch for the PR
 
         Returns:
-            bool: True if PR was created successfully or already exists, False otherwise
+            tuple[str | None, bool]: (PR URL, created). ``created`` is False when
+            an open PR between these branches already existed. URL is None on failure.
         """
+        owner = repo.split("/")[0]
         pr_url = _get_url(f"repos/{repo}/pulls")
         existing_prs_url = _get_url(
-            f"repos/{repo}/pulls?head={head_branch}&base={base_branch}&state=open"
+            f"repos/{repo}/pulls?head={owner}:{head_branch}&base={base_branch}&state=open"
         )
         pr_payload = {
             "title": f"Merge {head_branch} into {base_branch} - {datetime.now().strftime('%B %Y')}",
@@ -118,25 +127,25 @@ class GitHubService:
 
         if response.status_code == 201:
             pr = response.json()
-            return pr["html_url"]
+            return pr["html_url"], True
         elif response.status_code == 422:
             # Get existing PRs between these branches
             pr_response = requests.get(existing_prs_url, headers=_get_headers(repo))
             if pr_response.status_code == 200 and pr_response.json():
                 pr = pr_response.json()[0]
-                return pr["html_url"]
+                return pr["html_url"], False
             else:
                 rprint(
                     f"[bold red]❌ Failed to create PR: {pr_response.status_code}[/bold red]"
                 )
                 rprint(pr_response.text)
-                return None
+                return None, False
         else:
             rprint(
                 f"[bold red]❌ Failed to create PR: {response.status_code}[/bold red]"
             )
             rprint(response.text)
-            return None
+            return None, False
 
     @staticmethod
     def merge_pr(repo: str, pr_number: int):

@@ -1,0 +1,13 @@
+services:
+  tiamat:
+    build: .
+    image: tiamat-dashboard
+    ports:
+      # localhost only: the API has no auth and the container holds your tokens.
+      - "127.0.0.1:${TIAMAT_PORT:-8000}:8000"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

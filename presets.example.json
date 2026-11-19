@@ -1,0 +1,24 @@
+{
+  "_comment": "Deploy presets per environment. Copy to presets.json (not tracked) and use your own workflow files. 'workflow' and 'inputs' are for v1 projects; 'v2.workflow' is for projects in REPOSITORIES_v2, which only get the branch as input.",
+  "staging": {
+    "description": "Deploy to staging",
+    "workflow": "deploy-staging.yml",
+    "inputs": {"stage": "staging"},
+    "branch": "release",
+    "v2": {"workflow": "release-staging.yml"}
+  },
+  "demo": {
+    "description": "Deploy to demo",
+    "workflow": "deploy-demo.yml",
+    "inputs": {},
+    "branch": "release",
+    "v2": {"workflow": "release-demo.yml"}
+  },
+  "prod": {
+    "description": "Deploy to production",
+    "workflow": "deploy-prod.yml",
+    "inputs": {},
+    "branch": "main",
+    "v2": {"workflow": "release-prod.yml"}
+  }
+}

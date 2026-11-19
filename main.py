@@ -24,6 +24,11 @@ DEFAULT_BASE_BRANCH = "main"
 DEFAULT_HEAD_BRANCH = "release"
 
 REPOSITORIES = os.getenv("REPOSITORIES", "").split(",")
+# Repositories using the v2 release workflows (release.<env>.yml).
+# These create releases automatically, so `bump` is not needed for them.
+REPOSITORIES_V2 = [r for r in os.getenv("REPOSITORIES_v2", "").split(",") if r]
+# Every repository Tiamat manages (v1 + v2), used by repo-wide commands.
+ALL_REPOSITORIES = REPOSITORIES + [r for r in REPOSITORIES_V2 if r not in REPOSITORIES]
 FE_REPOSITORIES = os.getenv("FE_REPOSITORIES", "").split(",")
 BETA_REPOSITORIES = os.getenv("BETA_REPOSITORIES", "").split(",")
 ML_REPOSITORIES = os.getenv("ML_REPOSITORIES", "").split(",")
@@ -45,10 +50,28 @@ class TiamatContext:
 pass_tiamat_context = click.make_pass_decorator(TiamatContext, ensure=True)
 
 
+def parse_compare_args(compare_spec, repo, base_branch, head_branch):
+    """Parse optional COMPARE_SPEC and REPO arguments.
+
+    A single argument without '..' is treated as the repository, so
+    `check my-service` targets one repo instead of silently running on all.
+    """
+    if compare_spec and ".." not in compare_spec and not repo:
+        return base_branch, head_branch, compare_spec
+    if compare_spec:
+        if "..." in compare_spec:
+            base_branch, head_branch = compare_spec.split("...", 1)
+        elif ".." in compare_spec:
+            base_branch, head_branch = compare_spec.split("..", 1)
+    return base_branch, head_branch, repo
+
+
 def resolve_repo(repo_input):
     """Convert short repo name to full name if needed"""
     if "/" not in repo_input:
-        matching_repos = [r for r in REPOSITORIES if r.split("/")[1] == repo_input]
+        matching_repos = [
+            r for r in ALL_REPOSITORIES if r.split("/")[1] == repo_input
+        ]
         if matching_repos:
             return matching_repos[0]
     return repo_input
@@ -78,23 +101,30 @@ def cli(ctx, base, head):
 help_command = register_help_command(cli)
 
 # Register the shell command
-shell_command = register_shell_command(cli, REPOSITORIES, GITHUB_TOKEN, TiamatContext)
+shell_command = register_shell_command(cli, ALL_REPOSITORIES, GITHUB_TOKEN, TiamatContext)
 
 # Register release commands
-bump_command, releases_command = register_release_commands(cli, REPOSITORIES)
+bump_command, releases_command = register_release_commands(
+    cli, REPOSITORIES, REPOSITORIES_V2
+)
 
 # Register GitHub Actions commands
-run_command = register_actions_commands(cli, REPOSITORIES)
+run_command = register_actions_commands(cli, REPOSITORIES, REPOSITORIES_V2)
 
 # Register merge commands
-merge_command = register_merge_commands(cli, REPOSITORIES)
+merge_command = register_merge_commands(cli, ALL_REPOSITORIES)
 
 # Register Slack commands
 send_command = register_slack_commands(cli)
 
 # Register stats command
 stats_command = register_stats_command(
-    cli, REPOSITORIES, FE_REPOSITORIES, BETA_REPOSITORIES, ML_REPOSITORIES, DATAOPS_REPOSITORIES
+    cli,
+    ALL_REPOSITORIES,
+    FE_REPOSITORIES,
+    BETA_REPOSITORIES,
+    ML_REPOSITORIES,
+    DATAOPS_REPOSITORIES,
 )
 
 
@@ -108,7 +138,8 @@ def check(ctx, compare_spec, repo):
     COMPARE_SPEC can be in format 'base...head' or 'base..head'
     Examples:
       - check main...release
-      - check main...release coralreef
+      - check main...release my-service
+      - check my-service (default branches, single repo)
       - check (uses default branches from context)
     """
     if not GITHUB_TOKEN:
@@ -120,18 +151,15 @@ def check(ctx, compare_spec, repo):
     base_branch = ctx.base_branch
     head_branch = ctx.head_branch
 
-    # Parse the compare_spec if provided
-    if compare_spec:
-        if "..." in compare_spec:
-            base_branch, head_branch = compare_spec.split("...", 1)
-        elif ".." in compare_spec:
-            base_branch, head_branch = compare_spec.split("..", 1)
+    base_branch, head_branch, repo = parse_compare_args(
+        compare_spec, repo, base_branch, head_branch
+    )
 
     if repo:
         repo_full = resolve_repo(repo)
         GitHubService.get_pending_commits(repo_full, base_branch, head_branch)
     else:
-        for repo in REPOSITORIES:
+        for repo in ALL_REPOSITORIES:
             GitHubService.get_pending_commits(repo, base_branch, head_branch)
 
 
@@ -145,7 +173,8 @@ def createpr(ctx, compare_spec, repo):
     COMPARE_SPEC can be in format 'base...head' or 'base..head'
     Examples:
       - createpr main...release
-      - createpr main...release coralreef
+      - createpr main...release my-service
+      - createpr my-service (default branches, single repo)
       - createpr (uses default branches from context)
     """
     if not GITHUB_TOKEN:
@@ -157,12 +186,9 @@ def createpr(ctx, compare_spec, repo):
     base_branch = ctx.base_branch
     head_branch = ctx.head_branch
 
-    # Parse the compare_spec if provided
-    if compare_spec:
-        if "..." in compare_spec:
-            base_branch, head_branch = compare_spec.split("...", 1)
-        elif ".." in compare_spec:
-            base_branch, head_branch = compare_spec.split("..", 1)
+    base_branch, head_branch, repo = parse_compare_args(
+        compare_spec, repo, base_branch, head_branch
+    )
 
     notifications = {"fe": None, "be": None}
 
@@ -172,10 +198,12 @@ def createpr(ctx, compare_spec, repo):
             repo_full, base_branch, head_branch, display_table=False
         )
         if has_commits:
-            pr_url = GitHubService.create_pull_request(
+            pr_url, created = GitHubService.create_pull_request(
                 repo_full, base_branch, head_branch
             )
-            if pr_url:
+            if pr_url and not created:
+                rprint(f"🔗 Already open (no Slack message sent): {pr_url}")
+            elif pr_url:
                 rprint(f"🔗 {pr_url}")
                 key = "fe" if is_fe_repo(repo_full) else "be"
                 notifications[key] = (
@@ -184,15 +212,17 @@ def createpr(ctx, compare_spec, repo):
             else:
                 rprint(f"❌ Failed to create PR for {repo_full}")
     else:
-        for repo in REPOSITORIES:
+        for repo in ALL_REPOSITORIES:
             has_commits = GitHubService.get_pending_commits(
                 repo, base_branch, head_branch, display_table=False
             )
             if has_commits:
-                pr_url = GitHubService.create_pull_request(
+                pr_url, created = GitHubService.create_pull_request(
                     repo, base_branch, head_branch
                 )
-                if pr_url:
+                if pr_url and not created:
+                    rprint(f"🔗 Already open (no Slack message sent): {pr_url}")
+                elif pr_url:
                     rprint(f"🔗 {pr_url}")
                     key = "fe" if is_fe_repo(repo) else "be"
                     if notifications[key]:
@@ -217,9 +247,10 @@ def list():
     table = Table(title="Repositories")
     table.add_column("Index", style="dim")
     table.add_column("Repository", style="cyan")
+    table.add_column("Workflows", style="dim")
 
-    for i, repo in enumerate(REPOSITORIES, 1):
-        table.add_row(str(i), repo)
+    for i, repo in enumerate(ALL_REPOSITORIES, 1):
+        table.add_row(str(i), repo, "v2" if repo in REPOSITORIES_V2 else "v1")
 
     console.print(table)
 
@@ -239,7 +270,8 @@ def settings(ctx):
         "Slack Integration",
         "Configured ✅" if SlackService.is_configured() else "Not Configured ❌",
     )
-    table.add_row("Repositories", str(len(REPOSITORIES)))
+    table.add_row("Repositories", str(len(ALL_REPOSITORIES)))
+    table.add_row("Repositories (v2 workflows)", str(len(REPOSITORIES_V2)))
 
     console.print(table)
 

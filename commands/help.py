@@ -129,12 +129,12 @@ def register_help_command(cli):
                 "  • [green]check main...develop[/green] - Check pending commits from main to develop"
             )
             rprint(
-                "  • [green]check main...release coralreef[/green] - Check specific repository"
+                "  • [green]check main...release my-service[/green] - Check specific repository"
             )
             rprint(
                 "  • [green]createpr develop...main[/green] - Create PRs for all repos"
             )
-            rprint("  • [green]bump coralreef --patch[/green] - Create a patch release")
+            rprint("  • [green]bump my-service --patch[/green] - Create a patch release")
             rprint("  • [green]settings[/green] - Show current settings")
 
     # Return a reference to the command for direct usage in shell mode

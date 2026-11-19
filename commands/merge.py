@@ -26,12 +26,12 @@ def register_merge_commands(cli, REPOSITORIES):
         Merges the specified pull request using the default merge method.
 
         Args:
-            repo: Repository name (can be short name like 'coralreef' or full name like 'owner/coralreef')
+            repo: Repository name (can be short name like 'my-service' or full name like 'owner/my-service')
             pr_number: The number of the pull request to merge
 
         Examples:
-          - merge coralreef 123
-          - merge owner/coralreef 456
+          - merge my-service 123
+          - merge owner/my-service 456
         """
         if not GITHUB_TOKEN:
             rprint(

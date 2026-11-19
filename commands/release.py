@@ -3,8 +3,13 @@ from rich import print as rprint
 from services.github import GitHubService, GITHUB_TOKEN
 
 
-def register_release_commands(cli, REPOSITORIES):
+def register_release_commands(cli, REPOSITORIES, REPOSITORIES_V2=None):
     """Register release-related commands with the CLI"""
+
+    REPOSITORIES_V2 = REPOSITORIES_V2 or []
+    ALL_REPOSITORIES = list(REPOSITORIES) + [
+        r for r in REPOSITORIES_V2 if r not in REPOSITORIES
+    ]
 
     def resolve_repo(repo_input):
         """Convert short repo name to full name if needed"""
@@ -12,7 +17,9 @@ def register_release_commands(cli, REPOSITORIES):
             return None
 
         if "/" not in repo_input:
-            matching_repos = [r for r in REPOSITORIES if r.split("/")[1] == repo_input]
+            matching_repos = [
+                r for r in ALL_REPOSITORIES if r.split("/")[1] == repo_input
+            ]
             if matching_repos:
                 return matching_repos[0]
         return repo_input
@@ -39,9 +46,9 @@ def register_release_commands(cli, REPOSITORIES):
         By default bumps the minor version (1.0.0 -> 1.1.0).
 
         Examples:
-          - bump coralreef
-          - bump coralreef --patch
-          - bump coralreef --major --name "Major Release" -m "Lots of new features!"
+          - bump my-service
+          - bump my-service --patch
+          - bump my-service --major --name "Major Release" -m "Lots of new features!"
         """
         if not GITHUB_TOKEN:
             rprint(
@@ -53,6 +60,16 @@ def register_release_commands(cli, REPOSITORIES):
         repo_full = resolve_repo(repo)
         if not repo_full:
             rprint(f"[bold red]❌ Repository not found: {repo}[/bold red]")
+            return
+
+        if repo_full in REPOSITORIES_V2:
+            rprint(
+                f"[bold yellow]⚠️ {repo_full} uses the v2 release workflows, which create "
+                "the release automatically. `bump` is not needed.[/bold yellow]"
+            )
+            rprint(
+                f"[yellow]Use `deploy staging|demo|prod {repo}` instead.[/yellow]"
+            )
             return
 
         # Get latest version
@@ -109,8 +126,8 @@ def register_release_commands(cli, REPOSITORIES):
         If REPO is not specified, lists releases for all repositories.
 
         Examples:
-          - releases coralreef
-          - releases coralreef --limit 10
+          - releases my-service
+          - releases my-service --limit 10
           - releases (lists for all repos)
         """
         if not GITHUB_TOKEN:
@@ -127,7 +144,7 @@ def register_release_commands(cli, REPOSITORIES):
 
             GitHubService.list_releases(repo_full, limit)
         else:
-            for repository in REPOSITORIES:
+            for repository in ALL_REPOSITORIES:
                 GitHubService.list_releases(repository, limit)
 
     # Return the command functions for reference

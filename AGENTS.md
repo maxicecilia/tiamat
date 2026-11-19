@@ -24,6 +24,10 @@ A Python CLI tool for managing GitHub repositories across an organization. Tiama
 | `services/` | API client abstractions for GitHub and Slack (see `services/AGENTS.md`) |
 | `helpers/` | Shared utilities (currently empty placeholder, see `helpers/AGENTS.md`) |
 | `assets/` | Static assets such as the project logo (see `assets/AGENTS.md`) |
+| `api/` | FastAPI dashboard backend: SQLModel models, env seeding, routers under `/api`; serves `frontend/dist` |
+| `migrations/` | Alembic migrations for the dashboard SQLite DB (applied on API startup) |
+| `frontend/` | React + Vite + Tailwind + shadcn/ui dashboard; TanStack Query against `/api` |
+| `tests/` | pytest suite for the API (isolated temp SQLite DB, fixed env repos) |
 
 ## For AI Agents
 
@@ -31,13 +35,19 @@ A Python CLI tool for managing GitHub repositories across an organization. Tiama
 - `main.py` is the sole entry point; run it with `uv run python main.py`.
 - Environment is loaded via `python-dotenv` at the top of `main.py` before any service imports — keep this order.
 - `TiamatContext` is the Click context object that carries `base_branch` and `head_branch` across commands. Pass it with `@pass_tiamat_context`.
-- `resolve_repo()` in `main.py` converts short repo names (e.g. `coralreef`) to full `org/repo` form using the `REPOSITORIES` env var. Commands in `commands/` replicate this locally — consider consolidating if adding more commands.
+- `resolve_repo()` in `main.py` converts short repo names (e.g. `my-service`) to full `org/repo` form using the `REPOSITORIES` env var. Commands in `commands/` replicate this locally — consider consolidating if adding more commands.
 - Default branches are `main` (base) and `release` (head), configurable via `--base`/`--head` flags.
 
+### Dashboard
+- API: `uv run uvicorn api.main:app --reload`; UI: `cd frontend && npm run dev`; both: `docker compose up --build`.
+- Change models in `api/models.py`, then `uv run alembic revision --autogenerate -m "..."`. Never edit the DB by hand.
+- `api/seed.py` runs once per DB (a `SyncRun(kind="seed")` marker). After that the DB, not `.env`, is the source of truth.
+- Add shadcn components with `npx shadcn@latest add <name>` from `frontend/`.
+
 ### Testing Requirements
-- Run tests: `pytest`
-- Lint: `ruff check`
-- No test files exist yet; add them under a `tests/` directory following pytest conventions.
+- Run tests: `uv run pytest`
+- Lint: `uv run ruff check api tests migrations`
+- Frontend: `cd frontend && npm run build`
 
 ### Common Patterns
 - All commands check `GITHUB_TOKEN` at call time and print a rich error if missing.

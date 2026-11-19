@@ -1,0 +1,10 @@
+.git
+.venv
+.omc
+.worktrees
+.env
+data
+cache
+**/__pycache__
+frontend/node_modules
+frontend/dist

@@ -2,36 +2,22 @@ import click
 from rich import print as rprint
 
 from services.github import GITHUB_TOKEN, GitHubService
+from services.presets import load_deploy_presets
 
-# Define workflow shortcuts/presets
-WORKFLOW_PRESETS = {
-    "deploy": {
-        "environments": {
-            "staging": {
-                "workflow": "deploy.preview.manual.yml",
-                "inputs": {"region": "eu-central-1", "stage": "staging"},
-                "branch": "release",
-                "description": "Deploy to staging EU",
-            },
-            "prod": {
-                "workflow": "deploy.live.manual.yml",
-                "inputs": {},
-                "branch": "main",
-                "description": "Deploy to prod EU and US",
-            },
-            "demo": {
-                "workflow": "deploy.preview.demo.yml",
-                "inputs": {},
-                "branch": "release",
-                "description": "Deploy to demo EU and US",
-            },
-        }
-    }
-}
+# Workflow shortcuts: `deploy <environment> <repo>`. Each environment has a default
+# ("v1") workflow plus an optional "v2" workflow. Repositories listed in REPOSITORIES_v2
+# use the v2 workflow, which creates the release itself and only takes the branch.
+# The environments come from presets.json (see presets.example.json).
+WORKFLOW_PRESETS = {"deploy": {"environments": load_deploy_presets()}}
 
 
-def register_actions_commands(cli, REPOSITORIES):
+def register_actions_commands(cli, REPOSITORIES, REPOSITORIES_V2=None):
     """Register GitHub Actions-related commands with the CLI"""
+
+    REPOSITORIES_V2 = REPOSITORIES_V2 or []
+    ALL_REPOSITORIES = list(REPOSITORIES) + [
+        r for r in REPOSITORIES_V2 if r not in REPOSITORIES
+    ]
 
     def resolve_repo(repo_input):
         """Convert short repo name to full name if needed"""
@@ -39,10 +25,15 @@ def register_actions_commands(cli, REPOSITORIES):
             return None
 
         if "/" not in repo_input:
-            matching_repos = [r for r in REPOSITORIES if r.split("/")[1] == repo_input]
+            matching_repos = [
+                r for r in ALL_REPOSITORIES if r.split("/")[1] == repo_input
+            ]
             if matching_repos:
                 return matching_repos[0]
         return repo_input
+
+    def is_v2_repo(repo_full):
+        return repo_full in REPOSITORIES_V2
 
     @cli.command()
     @click.argument("workflow", required=True)
@@ -57,10 +48,10 @@ def register_actions_commands(cli, REPOSITORIES):
         WORKFLOW can be the workflow ID, filename, or name.
 
         Examples:
-          - run build.yml coralreef
-          - run build.yml coralreef --branch develop
-          - run "Build and Test" coralreef
-          - run deploy.yml coralreef -i version=1.0.0 -i environment=production
+          - run build.yml my-service
+          - run build.yml my-service --branch develop
+          - run "Build and Test" my-service
+          - run deploy.yml my-service -i version=1.0.0 -i environment=production
         """
         if not GITHUB_TOKEN:
             rprint(
@@ -120,15 +111,26 @@ def register_actions_commands(cli, REPOSITORIES):
                     rprint(f"[yellow]Available environments: {available}[/yellow]")
                     return
 
+                # Resolve repository name
+                repo_full = resolve_repo(repo)
+                if not repo_full:
+                    rprint(f"[bold red]❌ Repository not found: {repo}[/bold red]")
+                    return
+
                 # Get environment configuration
                 env_config = config["environments"][environment]
-                workflow_file = env_config["workflow"]
+                use_v2 = is_v2_repo(repo_full) and "v2" in env_config
+
+                if use_v2:
+                    # v2 workflows only take the branch; no preset inputs
+                    workflow_file = env_config["v2"]["workflow"]
+                    inputs = dict(env_config["v2"].get("inputs", {}))
+                else:
+                    workflow_file = env_config["workflow"]
+                    inputs = dict(env_config["inputs"])
 
                 # Use provided branch or default from config
                 workflow_branch = branch or env_config.get("branch", "main")
-
-                # Start with preset inputs
-                inputs = dict(env_config["inputs"])
 
                 # Add any additional inputs from command line
                 for inp in input:
@@ -141,17 +143,12 @@ def register_actions_commands(cli, REPOSITORIES):
                     key, value = inp.split("=", 1)
                     inputs[key] = value
 
-                # Resolve repository name
-                repo_full = resolve_repo(repo)
-                if not repo_full:
-                    rprint(f"[bold red]❌ Repository not found: {repo}[/bold red]")
-                    return
-
                 # Show what we're about to do
                 rprint("[bold blue]🚀 Running workflow:[/bold blue]")
                 rprint(f"  • [green]Command:[/green] {name} {environment}")
                 rprint(f"  • [green]Description:[/green] {env_config['description']}")
-                rprint(f"  • [green]Workflow:[/green] {workflow_file}")
+                workflow_label = f"{workflow_file} (v2)" if use_v2 else workflow_file
+                rprint(f"  • [green]Workflow:[/green] {workflow_label}")
                 rprint(f"  • [green]Repository:[/green] {repo_full}")
                 rprint(f"  • [green]Branch:[/green] {workflow_branch}")
 
@@ -173,8 +170,8 @@ Run workflows with predefined settings.
 Available environments: {environments}
 
 Examples:
-  - {name} {next(iter(config['environments']))} coralreef
-  - {name} {next(iter(config['environments']))} coralreef --branch custom-branch
+  - {name} {next(iter(config['environments']))} my-service
+  - {name} {next(iter(config['environments']))} my-service --branch custom-branch
 """
             return preset_command
 
